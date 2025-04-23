@@ -1102,6 +1102,177 @@ public class UserResource extends BaseResource {
     }
 
     /**
+     * Register a new user (request for registration).
+     *
+     * @api {post} /user/register Request for user registration
+     * @apiName PostUserRegister
+     * @apiGroup User
+     * @apiParam {String{3..50}} username Username
+     * @apiParam {String{8..50}} password Password
+     * @apiParam {String{1..100}} email E-mail
+     * @apiSuccess {String} status Status OK
+     * @apiError (client) ValidationError Validation error
+     * @apiError (client) AlreadyExistingUsername Login already used
+     * @apiError (server) UnknownError Unknown server error
+     * @apiPermission none
+     * @apiVersion 1.5.0
+     *
+     * @param username User's username
+     * @param password Password
+     * @param email E-Mail
+     * @return Response
+     */
+    @POST
+    @Path("register")
+    public Response register(
+            @FormParam("username") String username,
+            @FormParam("password") String password,
+            @FormParam("email") String email) {
+        // Validate the input data
+        username = ValidationUtil.validateLength(username, "username", 3, 50);
+        ValidationUtil.validateUsername(username, "username");
+        password = ValidationUtil.validateLength(password, "password", 8, 50);
+        email = ValidationUtil.validateLength(email, "email", 1, 100);
+        ValidationUtil.validateEmail(email, "email");
+        
+        // Create the user registration request
+        UserRegistration userRegistration = new UserRegistration();
+        userRegistration.setUsername(username);
+        userRegistration.setPassword(password);
+        userRegistration.setEmail(email);
+        
+        // Create the registration request
+        UserRegistrationDao userRegistrationDao = new UserRegistrationDao();
+        try {
+            userRegistrationDao.create(userRegistration);
+        } catch (Exception e) {
+            if ("AlreadyExistingUsername".equals(e.getMessage())) {
+                throw new ClientException("AlreadyExistingUsername", "Login already used", e);
+            } else {
+                throw new ServerException("UnknownError", "Unknown server error", e);
+            }
+        }
+        
+        // Always return OK
+        JsonObjectBuilder response = Json.createObjectBuilder()
+                .add("status", "ok");
+        return Response.ok().entity(response.build()).build();
+    }
+    
+    /**
+     * Returns the list of pending registration requests.
+     *
+     * @api {get} /user/registration Get pending registration requests
+     * @apiName GetUserRegistrationList
+     * @apiGroup User
+     * @apiSuccess {Object[]} registrations List of registration requests
+     * @apiSuccess {String} registrations.id ID
+     * @apiSuccess {String} registrations.username Username
+     * @apiSuccess {String} registrations.email E-mail
+     * @apiSuccess {Number} registrations.create_date Create date (timestamp)
+     * @apiError (client) ForbiddenError Access denied
+     * @apiPermission admin
+     * @apiVersion 1.5.0
+     *
+     * @return Response
+     */
+    @GET
+    @Path("registration")
+    public Response registrationList() {
+        if (!authenticate()) {
+            throw new ForbiddenClientException();
+        }
+        checkBaseFunction(BaseFunction.ADMIN);
+        
+        UserRegistrationDao userRegistrationDao = new UserRegistrationDao();
+        JsonArrayBuilder registrations = Json.createArrayBuilder();
+        
+        List<UserRegistrationDto> registrationList = userRegistrationDao.findAll();
+        for (UserRegistrationDto registration : registrationList) {
+            JsonObjectBuilder registrationJson = Json.createObjectBuilder()
+                    .add("id", registration.getId())
+                    .add("username", registration.getUsername())
+                    .add("email", registration.getEmail())
+                    .add("create_date", registration.getCreateTimestamp());
+            registrations.add(registrationJson);
+        }
+        
+        JsonObjectBuilder response = Json.createObjectBuilder()
+                .add("registrations", registrations);
+        return Response.ok().entity(response.build()).build();
+    }
+    
+    /**
+     * Approve or reject a registration request.
+     *
+     * @api {post} /user/registration/:id/approve Approve or reject a registration request
+     * @apiName PostUserRegistrationApprove
+     * @apiGroup User
+     * @apiParam {String} id Registration request ID
+     * @apiParam {Boolean} approve True to approve, false to reject
+     * @apiSuccess {String} status Status OK
+     * @apiError (client) ForbiddenError Access denied
+     * @apiError (client) ValidationError Validation error
+     * @apiError (client) NotFound Registration request not found
+     * @apiPermission admin
+     * @apiVersion 1.5.0
+     *
+     * @param id Registration request ID
+     * @param approve True to approve, false to reject
+     * @return Response
+     */
+    @POST
+    @Path("registration/{id: [a-zA-Z0-9-]+}/status")
+    public Response approveRegistration(
+            @PathParam("id") String id,
+            @FormParam("approve") boolean approve) {
+        if (!authenticate()) {
+            throw new ForbiddenClientException();
+        }
+        checkBaseFunction(BaseFunction.ADMIN);
+        
+        // Get the registration request
+        UserRegistrationDao userRegistrationDao = new UserRegistrationDao();
+        UserRegistration userRegistration = userRegistrationDao.getById(id);
+        if (userRegistration == null) {
+            throw new ClientException("NotFound", "Registration request not found");
+        }
+        
+        // Process approval/rejection
+        if (approve) {
+            // Approve the registration
+            userRegistration.setStatus(RegistrationStatus.APPROVED.name());
+            userRegistrationDao.update(userRegistration, principal.getId());
+            
+            // Create the user
+            User user = new User();
+            user.setRoleId(Constants.DEFAULT_USER_ROLE);
+            user.setUsername(userRegistration.getUsername());
+            user.setPassword(userRegistration.getPassword()); // Password is still in plain text in the registration
+            user.setEmail(userRegistration.getEmail());
+            user.setStorageQuota(1000000000L); // 1GB default quota
+            user.setOnboarding(true);
+            
+            // Create the user
+            UserDao userDao = new UserDao();
+            try {
+                userDao.create(user, principal.getId());
+            } catch (Exception e) {
+                throw new ServerException("UnknownError", "Unknown server error", e);
+            }
+        } else {
+            // Reject the registration
+            userRegistration.setStatus(RegistrationStatus.REJECTED.name());
+            userRegistrationDao.update(userRegistration, principal.getId());
+        }
+        
+        // Always return OK
+        JsonObjectBuilder response = Json.createObjectBuilder()
+                .add("status", "ok");
+        return Response.ok().entity(response.build()).build();
+    }
+
+    /**
      * Returns the authentication token value.
      *
      * @return Token value

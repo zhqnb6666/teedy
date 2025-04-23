@@ -75,4 +75,46 @@ angular.module('docs').controller('Login', function(Restangular, $scope, $rootSc
       });
     });
   };
+  
+  // Open the registration modal
+  $scope.openRegistration = function() {
+    $uibModal.open({
+      templateUrl: 'partial/docs/login.register.html',
+      controller: 'ModalRegistration'
+    });
+  };
+});
+
+/**
+ * Registration modal controller.
+ */
+angular.module('docs').controller('ModalRegistration', function($scope, $uibModalInstance, Restangular, $dialog, $translate) {
+  $scope.register = {};
+  
+  // Register
+  $scope.register = function() {
+    Restangular.one('user').post('register', {
+      username: $scope.register.username,
+      password: $scope.register.password,
+      email: $scope.register.email
+    }).then(function() {
+      $uibModalInstance.close();
+      var title = $translate.instant('login.register_success_title');
+      var msg = $translate.instant('login.register_success_message');
+      var btns = [{result: 'ok', label: $translate.instant('ok'), cssClass: 'btn-primary'}];
+      $dialog.messageBox(title, msg, btns);
+    }, function(data) {
+      if (data.data.type === 'AlreadyExistingUsername') {
+        var title = $translate.instant('login.register_error_title');
+        var msg = $translate.instant('login.register_error_message');
+        var btns = [{result: 'ok', label: $translate.instant('ok'), cssClass: 'btn-primary'}];
+        $dialog.messageBox(title, msg, btns);
+      }
+    });
+  };
+  
+  // Close the modal
+  $scope.close = function() {
+    $uibModalInstance.close();
+  };
 });
