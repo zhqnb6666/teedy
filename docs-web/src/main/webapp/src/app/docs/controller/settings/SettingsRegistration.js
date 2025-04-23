@@ -29,7 +29,7 @@ angular.module('docs').controller('SettingsRegistration', function($scope, Resta
       {result: 'ok', label: $translate.instant('ok'), cssClass: 'btn-primary'}
     ];
 
-    $dialog.messageBox(title, msg, btns).open().then(function(result) {
+    $dialog.messageBox(title, msg, btns, function(result) {
       if (result === 'ok') {
         Restangular.one('user/registration', registration.id).post('status', {
           approve: true
@@ -53,7 +53,7 @@ angular.module('docs').controller('SettingsRegistration', function($scope, Resta
       {result: 'ok', label: $translate.instant('ok'), cssClass: 'btn-primary'}
     ];
 
-    $dialog.messageBox(title, msg, btns).open().then(function(result) {
+    $dialog.messageBox(title, msg, btns, function(result) {
       if (result === 'ok') {
         Restangular.one('user/registration', registration.id).post('status', {
           approve: false
