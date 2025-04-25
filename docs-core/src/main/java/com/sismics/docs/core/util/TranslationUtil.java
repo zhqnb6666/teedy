@@ -18,6 +18,7 @@ import java.util.Map;
 public class TranslationUtil {
     private static final Logger log = LoggerFactory.getLogger(TranslationUtil.class);
     private static final String OPENAI_API_KEY = "sk-8fKgTLvJw5ISuZW9P2DUxAk57vULVSRs0fPbcjFGjw3vsFh0"; // Replace with your actual API key
+    private static final String OPENAI_BASE_URL = "https://xiaoai.plus/v1"; // 自定义 API 基础 URL
     private static final int TIMEOUT_SECONDS = 30;
     
     /**
@@ -58,8 +59,8 @@ public class TranslationUtil {
         }
         
         try {
-            // Create OpenAI service with timeout
-            OpenAiService service = new OpenAiService(OPENAI_API_KEY, Duration.ofSeconds(TIMEOUT_SECONDS));
+            // Create OpenAI service with timeout and custom base URL
+            OpenAiService service = new OpenAiService(OPENAI_API_KEY, OPENAI_BASE_URL, Duration.ofSeconds(TIMEOUT_SECONDS));
             
             // Prepare chat messages - system message to set up the task
             List<ChatMessage> messages = new ArrayList<>();
@@ -81,7 +82,7 @@ public class TranslationUtil {
                 .temperature(0.3)  // Lower temperature for more accurate translations
                 .build();
             
-            log.info("Sending request to OpenAI API");
+            log.info("Sending request to OpenAI API at {}", OPENAI_BASE_URL);
             
             // Execute the API call
             String response = service.createChatCompletion(chatCompletionRequest)
