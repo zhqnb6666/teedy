@@ -32,14 +32,22 @@
     <!-- Language selection dropdown -->
     <div class="btn-group" uib-dropdown>
       <button type="button" class="btn btn-default" uib-dropdown-toggle>
-        {{ selectedLanguage ? (languages | filter:{code:selectedLanguage})[0].name : ('file.view.translation' | translate) }} <span class="caret"></span>
+        <span ng-if="!selectedLanguage">{{ 'file.view.translation' | translate }}</span>
+        <span ng-if="selectedLanguage == 'en'">English</span>
+        <span ng-if="selectedLanguage == 'zh'">Chinese</span>
+        <span ng-if="selectedLanguage == 'ja'">Japanese</span>
+        <span ng-if="selectedLanguage == 'de'">German</span>
+        <span ng-if="selectedLanguage == 'ru'">Russian</span>
+        <span class="caret"></span>
       </button>
       <ul class="dropdown-menu dropdown-menu-right" uib-dropdown-menu>
         <li><a href ng-click="selectedLanguage = null">{{ 'file.view.no_translation' | translate }}</a></li>
         <li role="separator" class="divider"></li>
-        <li ng-repeat="lang in languages">
-          <a href ng-click="selectedLanguage = lang.code">{{ lang.name }}</a>
-        </li>
+        <li><a href ng-click="selectedLanguage = 'en'">English</a></li>
+        <li><a href ng-click="selectedLanguage = 'zh'">Chinese</a></li>
+        <li><a href ng-click="selectedLanguage = 'ja'">Japanese</a></li>
+        <li><a href ng-click="selectedLanguage = 'de'">German</a></li>
+        <li><a href ng-click="selectedLanguage = 'ru'">Russian</a></li>
       </ul>
     </div>
     

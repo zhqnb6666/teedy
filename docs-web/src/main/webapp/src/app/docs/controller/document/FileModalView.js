@@ -4,16 +4,12 @@
  * File modal view controller.
  */
 angular.module('docs').controller('FileModalView', function ($uibModalInstance, $scope, $state, $stateParams, $sce, Restangular, $transitions) {
-  // Available languages for translation
+  // Available languages for translation - only 5 languages
   $scope.languages = [
     {code: 'en', name: 'English'},
-    {code: 'fr', name: 'French'},
-    {code: 'es', name: 'Spanish'},
-    {code: 'de', name: 'German'},
-    {code: 'it', name: 'Italian'},
     {code: 'zh', name: 'Chinese'},
     {code: 'ja', name: 'Japanese'},
-    {code: 'ko', name: 'Korean'},
+    {code: 'de', name: 'German'},
     {code: 'ru', name: 'Russian'}
   ];
   
