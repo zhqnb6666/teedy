@@ -198,7 +198,7 @@
       <scope>test</scope>
     </dependency>
 
-        <!-- 添加Jackson依赖，解决ObjectMapper无法解析的问题 -->
+    <!-- 添加Jackson依赖，解决ObjectMapper无法解析的问题 -->
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
@@ -210,6 +210,13 @@
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpclient</artifactId>
       <version>4.5.14</version>
+    </dependency>
+    
+    <!-- 添加OpenAI Java客户端库依赖 -->
+    <dependency>
+      <groupId>com.theokanning.openai-gpt3-java</groupId>
+      <artifactId>service</artifactId>
+      <version>0.18.2</version>
     </dependency>
   </dependencies>
 

@@ -1,20 +1,15 @@
 package com.sismics.docs.core.util;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.http.HttpEntity;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
+import com.theokanning.openai.completion.chat.ChatCompletionRequest;
+import com.theokanning.openai.completion.chat.ChatMessage;
+import com.theokanning.openai.service.OpenAiService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -23,10 +18,8 @@ import java.util.Map;
 public class TranslationUtil {
     private static final Logger log = LoggerFactory.getLogger(TranslationUtil.class);
     private static final String OPENAI_API_KEY = "sk-8fKgTLvJw5ISuZW9P2DUxAk57vULVSRs0fPbcjFGjw3vsFh0"; // Replace with your actual API key
-    private static final String OPENAI_API_URL = "https://xiaoa.plus/v1/chat/completions";
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-    private static final int CONNECTION_TIMEOUT = 5000; // 5 seconds timeout
-
+    private static final int TIMEOUT_SECONDS = 30;
+    
     /**
      * Translates text from source language to target language using OpenAI API.
      *
@@ -44,7 +37,7 @@ public class TranslationUtil {
         
         log.info("Starting translation from {} to {}, text length: {}", sourceLang, targetLang, text.length());
         
-        // For debugging: provide a mock translation if real API fails
+        // For debugging or fallback use
         String mockTranslation = getMockTranslation(text, targetLang);
         
         // If text is too short, don't bother with the API
@@ -53,155 +46,86 @@ public class TranslationUtil {
             return "Translated to " + targetLang + " (text too short): " + text;
         }
         
-        try {
-            // Set request config with timeout
-            RequestConfig config = RequestConfig.custom()
-                .setConnectTimeout(CONNECTION_TIMEOUT)
-                .setConnectionRequestTimeout(CONNECTION_TIMEOUT)
-                .setSocketTimeout(CONNECTION_TIMEOUT)
-                .build();
-                
-            try (CloseableHttpClient httpClient = HttpClients.custom()
-                    .setDefaultRequestConfig(config)
-                    .build()) {
-                    
-                HttpPost httpPost = new HttpPost(OPENAI_API_URL);
-                httpPost.setHeader("Authorization", "Bearer " + OPENAI_API_KEY);
-                httpPost.setHeader("Content-Type", "application/json");
-
-                // Prepare the request body
-                Map<String, Object> message = new HashMap<>();
-                message.put("role", "user");
-                message.put("content", String.format("Translate the following text from %s to %s: %s", 
-                    sourceLang, targetLang, text));
-
-                Map<String, Object> requestBody = new HashMap<>();
-                requestBody.put("model", "gpt-4o-mini");
-                requestBody.put("messages", new Object[]{message});
-                requestBody.put("temperature", 0.3);
-
-                String jsonBody = objectMapper.writeValueAsString(requestBody);
-                httpPost.setEntity(new StringEntity(jsonBody, StandardCharsets.UTF_8));
-
-                log.info("Sending request to OpenAI API: {}", OPENAI_API_URL);
-                
-                // Execute the request
-                try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
-                    int statusCode = response.getStatusLine().getStatusCode();
-                    log.info("OpenAI API response status code: {}", statusCode);
-                    
-                    // Check if the status code indicates success (2xx)
-                    if (statusCode >= 200 && statusCode < 300) {
-                        HttpEntity entity = response.getEntity();
-                        if (entity != null) {
-                            String responseBody = EntityUtils.toString(entity);
-                            log.info("Response received, length: {}", responseBody.length());
-                            
-                            try {
-                                Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
-                                String extractedText = extractTranslatedText(responseMap);
-                                if (extractedText != null && !extractedText.trim().isEmpty()) {
-                                    log.info("Translation successful");
-                                    return extractedText;
-                                } else {
-                                    log.warn("Extracted text was empty, response: {}", responseBody);
-                                }
-                            } catch (Exception e) {
-                                log.error("Error parsing response: {}", responseBody, e);
-                            }
-                        }
-                    } else {
-                        log.error("API call failed with status code: {}", statusCode);
-                    }
-                }
-            }
-        } catch (IOException e) {
-            log.error("Error during translation", e);
+        // If text is too long, truncate it to avoid token limits
+        final int MAX_CHAR_LENGTH = 4000; // Reasonable character limit for translation
+        String textToTranslate = text;
+        boolean truncated = false;
+        
+        if (text.length() > MAX_CHAR_LENGTH) {
+            textToTranslate = text.substring(0, MAX_CHAR_LENGTH);
+            truncated = true;
+            log.info("Text truncated from {} to {} characters for translation", text.length(), MAX_CHAR_LENGTH);
         }
         
-        log.warn("Translation failed, returning mock translation");
-        return mockTranslation; // If API call fails, return the mock translation
-    }
-
-    /**
-     * Extracts the translated text from the OpenAI API response.
-     *
-     * @param responseMap The response from OpenAI API
-     * @return The translated text
-     */
-    private static String extractTranslatedText(Map<String, Object> responseMap) {
         try {
-            log.info("Extracting translated text from response");
-            // Navigate through the response structure to get the translated text
-            if (responseMap.containsKey("choices") && responseMap.get("choices") instanceof java.util.List) {
-                java.util.List<?> choices = (java.util.List<?>) responseMap.get("choices");
-                log.info("Found {} choices in response", choices.size());
+            // Create OpenAI service with timeout
+            OpenAiService service = new OpenAiService(OPENAI_API_KEY, Duration.ofSeconds(TIMEOUT_SECONDS));
+            
+            // Prepare chat messages - system message to set up the task
+            List<ChatMessage> messages = new ArrayList<>();
+            
+            // System message to instruct the model
+            ChatMessage systemMessage = new ChatMessage("system", 
+                "You are a translation assistant. Translate the text from " + sourceLang + " to " + targetLang + 
+                ". Provide only the translated text without any additional explanation or formatting.");
+            messages.add(systemMessage);
+            
+            // User message containing the text to translate
+            ChatMessage userMessage = new ChatMessage("user", textToTranslate);
+            messages.add(userMessage);
+            
+            // Prepare the completion request
+            ChatCompletionRequest chatCompletionRequest = ChatCompletionRequest.builder()
+                .model("gpt-3.5-turbo")  // Using a standard model for translation
+                .messages(messages)
+                .temperature(0.3)  // Lower temperature for more accurate translations
+                .build();
+            
+            log.info("Sending request to OpenAI API");
+            
+            // Execute the API call
+            String response = service.createChatCompletion(chatCompletionRequest)
+                .getChoices().get(0).getMessage().getContent();
+            
+            if (response != null && !response.trim().isEmpty()) {
+                log.info("Translation successful, received {} characters", response.length());
                 
-                if (!choices.isEmpty() && choices.get(0) instanceof Map) {
-                    Map<?, ?> firstChoice = (Map<?, ?>) choices.get(0);
-                    
-                    if (firstChoice.containsKey("message") && firstChoice.get("message") instanceof Map) {
-                        Map<?, ?> message = (Map<?, ?>) firstChoice.get("message");
-                        
-                        if (message.containsKey("content")) {
-                            String content = message.get("content").toString();
-                            log.info("Successfully extracted content: {} chars", content.length());
-                            return content;
-                        } else {
-                            log.warn("Message does not contain 'content' field: {}", message.keySet());
-                        }
-                    } else {
-                        log.warn("First choice does not contain valid 'message' field: {}", firstChoice.keySet());
-                    }
+                if (truncated) {
+                    return response.trim() + "\n\n[Note: Original text was truncated due to length limits]";
                 } else {
-                    log.warn("Choices list is empty or first element is not a Map");
+                    return response.trim();
                 }
             } else {
-                log.warn("Response does not contain valid 'choices' field");
+                log.warn("Received empty response from OpenAI API");
             }
             
-            // If we get here, we couldn't extract the text properly
-            log.warn("Unexpected response format from OpenAI API: {}", responseMap);
-            return "";
+            // Fallback to mock translation if API response is empty
+            return "API response empty. " + mockTranslation;
+            
         } catch (Exception e) {
-            log.error("Error extracting translated text from response", e);
-            return "";
+            log.error("Error during translation: {}", e.getMessage(), e);
+            // Return mock translation with error message for debugging
+            return "Translation error: " + e.getMessage() + ". " + mockTranslation;
         }
     }
-
+    
     /**
-     * Provides a mock translation for testing purposes
+     * Provides a mock translation for debugging and fallback purposes.
      * 
      * @param text Original text
-     * @param targetLang Target language
-     * @return Mocked translated text
+     * @param targetLang Target language code
+     * @return A mock translated text
      */
     private static String getMockTranslation(String text, String targetLang) {
-        String prefix = "";
-        
-        if (text.length() > 100) {
-            text = text.substring(0, 100) + "...";
+        if (text == null || text.isEmpty()) {
+            return "";
         }
         
-        switch (targetLang) {
-            case "zh":
-                prefix = "模拟翻译 (Chinese): ";
-                return prefix + text;
-            case "ja":
-                prefix = "模擬翻訳 (Japanese): ";
-                return prefix + text;
-            case "de":
-                prefix = "Simulierte Übersetzung (German): ";
-                return prefix + text;
-            case "ru":
-                prefix = "Симулированный перевод (Russian): ";
-                return prefix + text;
-            default:
-                prefix = "Mock translation: ";
-                return prefix + text;
-        }
+        // Just a simple mock that prefixes the text to indicate it would be translated
+        return "MOCK[" + targetLang + "]: " + text.substring(0, Math.min(50, text.length())) + 
+               (text.length() > 50 ? "..." : "");
     }
-
+    
     public static void main(String[] args) {
         // Simple test for each language
         testTranslation("Hello, world!", "en", "zh");
