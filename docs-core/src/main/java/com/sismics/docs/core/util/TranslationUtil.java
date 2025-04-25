@@ -1,19 +1,17 @@
 package com.sismics.docs.core.util;
 
-import com.theokanning.openai.completion.chat.ChatCompletionRequest;
-import com.theokanning.openai.completion.chat.ChatMessage;
-import com.theokanning.openai.service.OpenAiService;
+import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.openai.OpenAiChatModelName;
+import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.data.message.SystemMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
- * Utility class for handling translations using OpenAI API.
+ * Utility class for handling translations using OpenAI API via LangChain4j.
  */
 public class TranslationUtil {
     private static final Logger log = LoggerFactory.getLogger(TranslationUtil.class);
@@ -59,34 +57,28 @@ public class TranslationUtil {
         }
         
         try {
-            // Create OpenAI service with timeout and custom base URL
-            OpenAiService service = new OpenAiService(OPENAI_API_KEY, OPENAI_BASE_URL, Duration.ofSeconds(TIMEOUT_SECONDS));
-            
-            // Prepare chat messages - system message to set up the task
-            List<ChatMessage> messages = new ArrayList<>();
-            
-            // System message to instruct the model
-            ChatMessage systemMessage = new ChatMessage("system", 
-                "You are a translation assistant. Translate the text from " + sourceLang + " to " + targetLang + 
-                ". Provide only the translated text without any additional explanation or formatting.");
-            messages.add(systemMessage);
-            
-            // User message containing the text to translate
-            ChatMessage userMessage = new ChatMessage("user", textToTranslate);
-            messages.add(userMessage);
-            
-            // Prepare the completion request
-            ChatCompletionRequest chatCompletionRequest = ChatCompletionRequest.builder()
-                .model("gpt-3.5-turbo")  // Using a standard model for translation
-                .messages(messages)
-                .temperature(0.3)  // Lower temperature for more accurate translations
-                .build();
+            // Create LangChain4j OpenAI chat model with custom base URL
+            ChatLanguageModel model = OpenAiChatModel.builder()
+                    .apiKey(OPENAI_API_KEY)
+                    .baseUrl(OPENAI_BASE_URL)
+                    .modelName(OpenAiChatModelName.GPT_3_5_TURBO)
+                    .temperature(0.3)
+                    .timeout(Duration.ofSeconds(TIMEOUT_SECONDS))
+                    .build();
             
             log.info("Sending request to OpenAI API at {}", OPENAI_BASE_URL);
             
+            // Create system message with translation instructions
+            SystemMessage systemMessage = SystemMessage.from(
+                "You are a translation assistant. Translate the text from " + sourceLang + " to " + targetLang + 
+                ". Provide only the translated text without any additional explanation or formatting."
+            );
+            
+            // Create user message with text to translate
+            UserMessage userMessage = UserMessage.from(textToTranslate);
+            
             // Execute the API call
-            String response = service.createChatCompletion(chatCompletionRequest)
-                .getChoices().get(0).getMessage().getContent();
+            String response = model.generate(systemMessage, userMessage).content().text();
             
             if (response != null && !response.trim().isEmpty()) {
                 log.info("Translation successful, received {} characters", response.length());
@@ -98,10 +90,9 @@ public class TranslationUtil {
                 }
             } else {
                 log.warn("Received empty response from OpenAI API");
+                // Fallback to mock translation if API response is empty
+                return "API response empty. " + mockTranslation;
             }
-            
-            // Fallback to mock translation if API response is empty
-            return "API response empty. " + mockTranslation;
             
         } catch (Exception e) {
             log.error("Error during translation: {}", e.getMessage(), e);
