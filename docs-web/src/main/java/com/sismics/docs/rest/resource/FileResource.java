@@ -551,6 +551,7 @@ public class FileResource extends BaseResource {
      * @apiParam {String} id File ID
      * @apiParam {String} share Share ID
      * @apiParam {String="web","thumb","content"} [size] Size variation
+     * @apiParam {String} targetLang Target language for translation
      * @apiSuccess {Object} file The file data is the whole response
      * @apiError (client) SizeError Size must be web or thumb
      * @apiError (client) ForbiddenError Access denied or document not visible
@@ -560,6 +561,9 @@ public class FileResource extends BaseResource {
      * @apiVersion 1.5.0
      *
      * @param fileId File ID
+     * @param shareId Share ID
+     * @param size Size variation
+     * @param targetLang Target language for translation
      * @return Response
      */
     @GET
@@ -568,7 +572,8 @@ public class FileResource extends BaseResource {
     public Response data(
             @PathParam("id") final String fileId,
             @QueryParam("share") String shareId,
-            @QueryParam("size") String size) {
+            @QueryParam("size") String size,
+            @QueryParam("targetLang") String targetLang) {
         authenticate();
         
         if (size != null && !Lists.newArrayList("web", "thumb", "content").contains(size)) {
@@ -585,7 +590,29 @@ public class FileResource extends BaseResource {
         boolean decrypt;
         if (size != null) {
             if (size.equals("content")) {
-                return Response.ok(Strings.nullToEmpty(file.getContent()))
+                String content = Strings.nullToEmpty(file.getContent());
+                
+                // Translate the content if targetLang is provided
+                if (targetLang != null && !targetLang.isEmpty()) {
+                    DocumentDao documentDao = new DocumentDao();
+                    String documentId = file.getDocumentId();
+                    String sourceLang = "en"; // Default source language
+                    
+                    // Try to get the document language if document ID is available
+                    if (documentId != null) {
+                        DocumentDto documentDto = documentDao.getDocument(documentId, PermType.READ, getTargetIdList(shareId));
+                        if (documentDto != null && documentDto.getLanguage() != null) {
+                            sourceLang = documentDto.getLanguage();
+                        }
+                    }
+                    
+                    // Don't translate if source and target languages are the same
+                    if (!sourceLang.equals(targetLang)) {
+                        content = com.sismics.docs.core.util.TranslationUtil.translate(content, sourceLang, targetLang);
+                    }
+                }
+                
+                return Response.ok(content)
                         .header(HttpHeaders.CONTENT_TYPE, "text/plain; charset=utf-8")
                         .build();
             }

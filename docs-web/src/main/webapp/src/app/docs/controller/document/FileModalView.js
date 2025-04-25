@@ -4,6 +4,22 @@
  * File modal view controller.
  */
 angular.module('docs').controller('FileModalView', function ($uibModalInstance, $scope, $state, $stateParams, $sce, Restangular, $transitions) {
+  // Available languages for translation
+  $scope.languages = [
+    {code: 'en', name: 'English'},
+    {code: 'fr', name: 'French'},
+    {code: 'es', name: 'Spanish'},
+    {code: 'de', name: 'German'},
+    {code: 'it', name: 'Italian'},
+    {code: 'zh', name: 'Chinese'},
+    {code: 'ja', name: 'Japanese'},
+    {code: 'ko', name: 'Korean'},
+    {code: 'ru', name: 'Russian'}
+  ];
+  
+  // Selected language (default: null - no translation)
+  $scope.selectedLanguage = null;
+  
   var setFile = function (files) {
     // Search current file
     _.each(files, function (value) {
@@ -84,7 +100,14 @@ angular.module('docs').controller('FileModalView', function ($uibModalInstance, 
    * Open the file content a new window.
    */
   $scope.openFileContent = function () {
-    window.open('../api/file/' + $stateParams.fileId + '/data?size=content');
+    var url = '../api/file/' + $stateParams.fileId + '/data?size=content';
+    
+    // Add target language if selected
+    if ($scope.selectedLanguage) {
+      url += '&targetLang=' + $scope.selectedLanguage;
+    }
+    
+    window.open(url);
   };
 
   /**
