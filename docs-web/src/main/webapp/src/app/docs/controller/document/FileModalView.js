@@ -94,6 +94,8 @@ angular.module('docs').controller('FileModalView', function ($uibModalInstance, 
 
   /**
    * Open the file content a new window.
+   * Note: This method is kept for backwards compatibility,
+   * but we now construct the URL directly in the HTML template.
    */
   $scope.openFileContent = function () {
     var url = '../api/file/' + $stateParams.fileId + '/data?size=content';

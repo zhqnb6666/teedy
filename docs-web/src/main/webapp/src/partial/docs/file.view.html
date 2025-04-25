@@ -51,9 +51,14 @@
       </ul>
     </div>
     
-    <button type="button" class="btn btn-default" uib-tooltip="{{ 'file.view.show_text_content' | translate }}" tooltip-append-to-body="true" ng-click="openFileContent()">
+    <!-- Show text content button - Direct URL construction with language parameter -->
+    <a href="../api/file/{{ $stateParams.fileId }}/data?size=content{{ selectedLanguage ? '&targetLang=' + selectedLanguage : '' }}" 
+       target="_blank" 
+       class="btn btn-default" 
+       uib-tooltip="{{ 'file.view.show_text_content' | translate }}" 
+       tooltip-append-to-body="true">
       <span class="fas fa-eye"></span>
-    </button>
+    </a>
   </div>
 </div>
 
