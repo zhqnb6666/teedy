@@ -608,7 +608,19 @@ public class FileResource extends BaseResource {
                     
                     // Don't translate if source and target languages are the same
                     if (!sourceLang.equals(targetLang)) {
-                        content = com.sismics.docs.core.util.TranslationUtil.translate(content, sourceLang, targetLang);
+                        // Add a marker to indicate that translation is active
+                        String translatedContent = com.sismics.docs.core.util.TranslationUtil.translate(content, sourceLang, targetLang);
+                        
+                        // Add a header to show the translation language
+                        String languageName = "";
+                        if ("zh".equals(targetLang)) languageName = "Chinese";
+                        else if ("en".equals(targetLang)) languageName = "English";
+                        else if ("ja".equals(targetLang)) languageName = "Japanese";
+                        else if ("de".equals(targetLang)) languageName = "German";
+                        else if ("ru".equals(targetLang)) languageName = "Russian";
+                        else languageName = targetLang;
+                        
+                        content = "Translated to " + languageName + ":\n\n" + translatedContent;
                     }
                 }
                 
