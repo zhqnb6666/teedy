@@ -28,7 +28,22 @@
     <button type="button" class="btn btn-default" uib-tooltip="Download this file" tooltip-append-to-body="true" ng-click="openFile()">
       <span class="fas fa-download"></span>
     </button>
-    <button type="button" class="btn btn-default" uib-tooltip="Show text content" tooltip-append-to-body="true" ng-click="openFileContent()">
+    
+    <!-- Language selection dropdown -->
+    <div class="btn-group" uib-dropdown>
+      <button type="button" class="btn btn-default" uib-dropdown-toggle>
+        {{ selectedLanguage ? (languages | filter:{code:selectedLanguage})[0].name : ('file.view.translation' | translate) }} <span class="caret"></span>
+      </button>
+      <ul class="dropdown-menu dropdown-menu-right" uib-dropdown-menu>
+        <li><a href ng-click="selectedLanguage = null">{{ 'file.view.no_translation' | translate }}</a></li>
+        <li role="separator" class="divider"></li>
+        <li ng-repeat="lang in languages">
+          <a href ng-click="selectedLanguage = lang.code">{{ lang.name }}</a>
+        </li>
+      </ul>
+    </div>
+    
+    <button type="button" class="btn btn-default" uib-tooltip="{{ 'file.view.show_text_content' | translate }}" tooltip-append-to-body="true" ng-click="openFileContent()">
       <span class="fas fa-eye"></span>
     </button>
   </div>
